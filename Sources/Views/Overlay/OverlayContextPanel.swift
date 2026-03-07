@@ -80,7 +80,7 @@ final class ContextMenuPanel: NSPanel {
 struct OverlayContextMenuContent: View {
     let onSnooze: (Int) -> Void     // 0 = indefinite
     let onResize: (OverlaySize) -> Void
-    let onMove: (OverlayPosition) -> Void
+    let onOpacity: (Double) -> Void
     let onClose: () -> Void
     let onDisable: () -> Void
     let dismiss: () -> Void
@@ -92,8 +92,9 @@ struct OverlayContextMenuContent: View {
 
     @AppStorage("overlay_size") private var currentSizePixels: Int = OverlaySize.medium.rawValue
     @AppStorage("overlay_resize_mode") private var resizeMode = false
+    @AppStorage("overlay_opacity") private var currentOpacity: Double = 1.0
 
-    private enum Section { case snooze, size, position }
+    private enum Section { case snooze, size, transparency }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -121,19 +122,16 @@ struct OverlayContextMenuContent: View {
                     resizeMode = true
                     dismiss()
                 }
-            } else if expandedSection == .position {
-                // Position sub-items
-                menuHeader("Position") { expandedSection = nil }
+            } else if expandedSection == .transparency {
+                // Transparency slider
+                menuHeader("Transparency") { expandedSection = nil }
                 divider
-                positionItem("Bottom Right", position: .bottomRight)
-                positionItem("Bottom Left", position: .bottomLeft)
-                positionItem("Top Right", position: .topRight)
-                positionItem("Top Left", position: .topLeft)
+                opacitySlider
             } else {
                 // Main menu
                 expandableItem("Snooze", icon: "moon.zzz.fill") { expandedSection = .snooze }
                 expandableItem("Size", icon: "arrow.up.left.and.arrow.down.right") { expandedSection = .size }
-                expandableItem("Position", icon: "arrow.up.and.down.and.arrow.left.and.right") { expandedSection = .position }
+                expandableItem("Transparency", icon: "circle.lefthalf.filled") { expandedSection = .transparency }
                 divider
                 openDashboardItem
                 disableItem
@@ -312,25 +310,54 @@ struct OverlayContextMenuContent: View {
         .onHover { hoveredItem = $0 ? "size-\(title)" : nil }
     }
 
-    private func positionItem(_ title: String, position: OverlayPosition) -> some View {
-        Button {
-            onMove(position)
-            dismiss()
-        } label: {
-            HStack(spacing: 8) {
-                Text(title)
-                    .font(Constants.body(size: 13, weight: .medium))
-                    .foregroundStyle(Constants.textPrimary)
-                Spacer()
+    private var opacitySlider: some View {
+        VStack(spacing: 6) {
+            GeometryReader { geo in
+                let trackHeight: CGFloat = 6
+                let thumbSize: CGFloat = 18
+                let usableWidth = geo.size.width - thumbSize
+                let fraction = (currentOpacity - 0.1) / 0.9
+                let thumbX = thumbSize / 2 + usableWidth * fraction
+
+                ZStack(alignment: .leading) {
+                    // Track background
+                    Capsule()
+                        .fill(Constants.textMuted.opacity(0.15))
+                        .frame(height: trackHeight)
+
+                    // Filled track
+                    Capsule()
+                        .fill(Constants.orangePrimary)
+                        .frame(width: thumbX, height: trackHeight)
+
+                    // Thumb
+                    Circle()
+                        .fill(Color.white)
+                        .overlay(Circle().stroke(Constants.orangePrimary, lineWidth: 2))
+                        .frame(width: thumbSize, height: thumbSize)
+                        .offset(x: thumbX - thumbSize / 2)
+                }
+                .frame(height: geo.size.height)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { drag in
+                            let raw = (drag.location.x - thumbSize / 2) / usableWidth
+                            let clamped = min(max(raw, 0), 1)
+                            let stepped = (clamped * 18).rounded() / 18 // ~5% steps
+                            currentOpacity = 0.1 + stepped * 0.9
+                            onOpacity(currentOpacity)
+                        }
+                )
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(hoveredItem == "pos-\(title)" ? Constants.orangePrimarySubtle : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .contentShape(Rectangle())
+            .frame(height: 22)
+
+            Text("\(Int(currentOpacity * 100))%")
+                .font(Constants.body(size: 11, weight: .medium))
+                .foregroundStyle(Constants.textMuted)
         }
-        .buttonStyle(.plain)
-        .onHover { hoveredItem = $0 ? "pos-\(title)" : nil }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
     }
 
     private var disableItem: some View {

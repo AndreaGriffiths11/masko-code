@@ -211,10 +211,11 @@ final class AppStore {
             guard let self else { return }
             let reversed = Array(self.pendingPermissionStore.pending.reversed())
             if let topPerm = reversed.first {
+                let sessionDir = self.sessionStore.sessions.first(where: { $0.id == topPerm.event.sessionId })?.projectDir
                 IDETerminalFocus.focus(
                     terminalPid: topPerm.event.terminalPid,
                     shellPid: topPerm.event.shellPid,
-                    projectDir: topPerm.event.cwd
+                    projectDir: sessionDir ?? topPerm.event.cwd
                 )
             } else {
                 self.hotkeyManager.toggleFocus()

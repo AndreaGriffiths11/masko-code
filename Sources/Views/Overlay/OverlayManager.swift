@@ -110,6 +110,10 @@ final class OverlayManager {
         // Right-click handler
         newPanel.onRightClick = { [weak self] point in self?.showContextMenu(at: point) }
 
+        // Restore saved opacity
+        let savedOpacity = UserDefaults.standard.double(forKey: "overlay_opacity")
+        newPanel.alphaValue = savedOpacity > 0 ? savedOpacity : 1.0
+
         // Show without stealing focus
         newPanel.orderFrontRegardless()
 
@@ -189,6 +193,10 @@ final class OverlayManager {
         // Right-click handler
         mascotPanel.onRightClick = { [weak self] point in self?.showContextMenu(at: point) }
 
+        // Restore saved opacity
+        let savedOpacity = UserDefaults.standard.double(forKey: "overlay_opacity")
+        mascotPanel.alphaValue = savedOpacity > 0 ? savedOpacity : 1.0
+
         mascotPanel.orderFrontRegardless()
         SkyLightOperator.shared.delegateWindow(mascotPanel)
 
@@ -228,6 +236,7 @@ final class OverlayManager {
             .environment(pendingPermissionStore)
             .environment(hotkeyManager)
             .environment(sessionSwitcherStore)
+            .environment(sessionStore)
 
         let permController = TransparentHostingController(rootView: permView)
         permController.sizingOptions = []
@@ -546,6 +555,7 @@ final class OverlayManager {
             .environment(pendingPermissionStore)
             .environment(hotkeyManager)
             .environment(sessionSwitcherStore)
+            .environment(sessionStore)
 
         let permController = TransparentHostingController(rootView: permView)
         permController.sizingOptions = []
@@ -655,28 +665,10 @@ final class OverlayManager {
 
     // MARK: - Context Menu
 
-    /// Move the mascot overlay to a screen corner position.
-    func moveToPosition(_ position: OverlayPosition) {
-        guard let panel else { return }
-        let screen = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
-        let size = panel.frame.size
-        let margin: CGFloat = 40
-
-        let origin: CGPoint
-        switch position {
-        case .bottomRight:
-            origin = CGPoint(x: screen.maxX - size.width - margin, y: screen.minY + margin)
-        case .bottomLeft:
-            origin = CGPoint(x: screen.minX + margin, y: screen.minY + margin)
-        case .topRight:
-            origin = CGPoint(x: screen.maxX - size.width - margin, y: screen.maxY - size.height - margin)
-        case .topLeft:
-            origin = CGPoint(x: screen.minX + margin, y: screen.maxY - size.height - margin)
-        }
-
-        panel.setFrame(NSRect(origin: origin, size: size), display: true, animate: true)
-        savePosition()
-        scheduleHUDReposition()
+    /// Set the mascot overlay opacity and persist it.
+    func setOverlayOpacity(_ value: Double) {
+        UserDefaults.standard.set(value, forKey: "overlay_opacity")
+        panel?.alphaValue = value
     }
 
     func showContextMenu(at point: NSPoint) {
@@ -685,7 +677,7 @@ final class OverlayManager {
         let content = OverlayContextMenuContent(
             onSnooze: { [weak self] minutes in self?.snooze(minutes: minutes) },
             onResize: { [weak self] size in self?.currentSizePixels = size.rawValue },
-            onMove: { [weak self] position in self?.moveToPosition(position) },
+            onOpacity: { [weak self] value in self?.setOverlayOpacity(value) },
             onClose: { [weak self] in self?.hideOverlay() },
             onDisable: { [weak self] in self?.disableOverlay() },
             dismiss: { [weak panel] in panel?.dismiss() }
