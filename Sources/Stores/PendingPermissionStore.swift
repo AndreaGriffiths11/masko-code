@@ -71,6 +71,9 @@ struct PendingPermission: Identifiable {
     let event: ClaudeEvent
     let connection: NWConnection
     let receivedAt: Date
+    /// tool_use_id correlated from the preceding PreToolUse event
+    /// (PermissionRequest events from Claude Code don't include tool_use_id)
+    let resolvedToolUseId: String?
 
     var toolName: String { event.toolName ?? "Unknown" }
 
@@ -350,18 +353,38 @@ final class PendingPermissionStore {
     /// Called by views when a text-input option is selected — activates the app + makes overlay key window
     var onRequestTextInputFocus: (() -> Void)?
 
+    /// Cache PreToolUse toolUseIds to correlate with the next PermissionRequest.
+    /// Claude Code fires PreToolUse (with tool_use_id) immediately before PermissionRequest (without it).
+    /// Key: "sessionId|agentId|toolName" → toolUseId
+    private var preToolUseCache: [String: String] = [:]
+
     init() {
         startLivenessChecks()
     }
 
     var count: Int { pending.count }
 
+    /// Cache a PreToolUse event's toolUseId so the next PermissionRequest can be correlated.
+    func cachePreToolUse(sessionId: String, agentId: String?, toolName: String, toolUseId: String) {
+        let key = "\(sessionId)|\(agentId ?? "")|\(toolName)"
+        preToolUseCache[key] = toolUseId
+    }
+
     func add(event: ClaudeEvent, connection: NWConnection) {
+        // Correlate with preceding PreToolUse to recover tool_use_id
+        // (PermissionRequest events from Claude Code don't include tool_use_id)
+        var resolvedToolUseId = event.toolUseId
+        if resolvedToolUseId == nil, let sid = event.sessionId, let toolName = event.toolName {
+            let key = "\(sid)|\(event.agentId ?? "")|\(toolName)"
+            resolvedToolUseId = preToolUseCache.removeValue(forKey: key)
+        }
+
         let permission = PendingPermission(
             id: UUID(),
             event: event,
             connection: connection,
-            receivedAt: Date()
+            receivedAt: Date(),
+            resolvedToolUseId: resolvedToolUseId
         )
         pending.append(permission)
         onPendingChange?()
@@ -371,7 +394,7 @@ final class PendingPermissionStore {
         // the receive completes and we auto-dismiss without sending a response.
         monitorConnection(connection, permissionId: permission.id)
 
-        print("[masko-desktop] Permission added: \(event.toolName ?? "unknown") (pending: \(pending.count))")
+        print("[masko-desktop] Permission added: \(event.toolName ?? "unknown") toolUseId=\(resolvedToolUseId ?? "nil") (pending: \(pending.count))")
     }
 
     func collapse(id: UUID) {
@@ -466,9 +489,11 @@ final class PendingPermissionStore {
     /// Dismiss a single pending permission by its toolUseId.
     /// Used when a postToolUse event arrives — only the specific tool that completed should be dismissed,
     /// not all permissions for the agent (which would incorrectly remove unrelated pending permissions).
+    /// Matches on both event.toolUseId and resolvedToolUseId (correlated from PreToolUse).
     func dismissByToolUseId(sessionId: String, toolUseId: String) {
         guard let perm = pending.first(where: {
-            $0.event.sessionId == sessionId && $0.event.toolUseId == toolUseId
+            $0.event.sessionId == sessionId &&
+            ($0.event.toolUseId == toolUseId || $0.resolvedToolUseId == toolUseId)
         }) else { return }
         silentRemove(id: perm.id)
     }

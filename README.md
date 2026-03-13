@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/RousselPaul/masko-code/releases/latest"><img src="https://img.shields.io/github/v/release/RousselPaul/masko-code?style=flat-square&color=f95d02" alt="Release" /></a>
   <img src="https://img.shields.io/badge/macOS-14.0%2B-black?style=flat-square&logo=apple" alt="macOS 14+" />
-  <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-black?style=flat-square" alt="Apple Silicon" />
+  <img src="https://img.shields.io/badge/Universal-arm64%20%2B%20x86__64-black?style=flat-square" alt="Universal Binary" />
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License" />
 </p>
 
@@ -99,7 +99,7 @@ Click a session in the dashboard or click the mascot overlay to jump to the righ
 ## Requirements
 
 - macOS 14.0+ (Sonoma)
-- Apple Silicon (M1, M2, M3, M4)
+- Apple Silicon or Intel Mac
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed
 
 ## Install

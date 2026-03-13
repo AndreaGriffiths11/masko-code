@@ -63,6 +63,17 @@ final class AppStore {
                 // For stop/userPromptSubmit: session is ending, dismiss all for that agent.
                 if let eventType = event.eventType,
                    let sid = event.sessionId {
+                    // Cache PreToolUse toolUseId — fires immediately before PermissionRequest
+                    // for the same tool call, and carries the tool_use_id that PermissionRequest lacks.
+                    if eventType == .preToolUse,
+                       let toolUseId = event.toolUseId,
+                       let toolName = event.toolName {
+                        self.pendingPermissionStore.cachePreToolUse(
+                            sessionId: sid, agentId: event.agentId,
+                            toolName: toolName, toolUseId: toolUseId
+                        )
+                    }
+
                     if [.stop, .userPromptSubmit].contains(eventType),
                        self.pendingPermissionStore.pending.contains(where: {
                            $0.event.sessionId == sid && $0.event.agentId == event.agentId
