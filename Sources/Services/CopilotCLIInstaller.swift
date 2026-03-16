@@ -7,6 +7,7 @@ enum CopilotCLIInstaller {
 
     private static let pluginDir = NSHomeDirectory() + "/.masko-desktop/copilot-plugin"
     private static let installedPluginsDir = NSHomeDirectory() + "/.copilot/installed-plugins/local/masko-copilot"
+    private static let directPluginsDir = NSHomeDirectory() + "/.copilot/installed-plugins/_direct/copilot-plugin"
     private static let hookCommand = "~/.masko-desktop/hooks/hook-sender.sh"
 
     // MARK: - Public API
@@ -47,6 +48,7 @@ enum CopilotCLIInstaller {
     /// Check if our plugin is installed
     static func isRegistered() -> Bool {
         FileManager.default.fileExists(atPath: installedPluginsDir + "/plugin.json")
+            || FileManager.default.fileExists(atPath: directPluginsDir + "/plugin.json")
     }
 
     /// Install the Copilot CLI plugin
@@ -92,9 +94,9 @@ enum CopilotCLIInstaller {
         try process.run()
         process.waitUntilExit()
 
-        // If CLI install failed, copy directly to installed plugins dir
+        // If CLI install failed, copy directly to the fallback plugins dir
         if process.terminationStatus != 0 {
-            let destDir = installedPluginsDir
+            let destDir = directPluginsDir
             try fm.createDirectory(atPath: destDir, withIntermediateDirectories: true)
             let pluginSrc = pluginDir + "/plugin.json"
             let hooksSrc = pluginDir + "/hooks.json"
@@ -121,6 +123,7 @@ enum CopilotCLIInstaller {
 
         // Also remove the installed plugin directory directly
         try? FileManager.default.removeItem(atPath: installedPluginsDir)
+        try? FileManager.default.removeItem(atPath: directPluginsDir)
 
         // Clean up our staging directory
         try? FileManager.default.removeItem(atPath: pluginDir)
