@@ -453,20 +453,32 @@ struct OnboardingView: View {
 
     private func enableHooks() {
         hookError = nil
-        do {
-            if claudeAvailable {
+        var errors: [String] = []
+
+        if claudeAvailable {
+            do {
                 try HookInstaller.install()
                 hookInstalled = HookInstaller.isRegistered()
+            } catch {
+                errors.append("Claude Code: \(error.localizedDescription)")
             }
-            if copilotAvailable {
+        }
+        if copilotAvailable {
+            do {
                 try CopilotCLIInstaller.install()
                 copilotHookInstalled = CopilotCLIInstaller.isRegistered()
+            } catch {
+                errors.append("Copilot CLI: \(error.localizedDescription)")
             }
+        }
+
+        if !errors.isEmpty {
+            hookError = errors.joined(separator: "\n")
+        }
+        if allHooksInstalled {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 nextStep(after: 1)
             }
-        } catch {
-            hookError = error.localizedDescription
         }
     }
 
