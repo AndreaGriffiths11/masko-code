@@ -41,6 +41,7 @@ struct AppNotification: Identifiable, Codable {
     let collectionId: UUID?
     let actionUrl: String?
     let deviceName: String?
+    let agentSource: AgentSource
     let createdAt: Date
 
     init(
@@ -53,7 +54,8 @@ struct AppNotification: Identifiable, Codable {
         jobId: UUID? = nil,
         collectionId: UUID? = nil,
         actionUrl: String? = nil,
-        deviceName: String? = nil
+        deviceName: String? = nil,
+        agentSource: AgentSource = .unknown
     ) {
         self.id = UUID()
         self.title = title
@@ -70,6 +72,7 @@ struct AppNotification: Identifiable, Codable {
         self.collectionId = collectionId
         self.actionUrl = actionUrl
         self.deviceName = deviceName ?? Host.current().localizedName
+        self.agentSource = agentSource
         self.createdAt = Date()
     }
 }

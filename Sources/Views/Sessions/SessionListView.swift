@@ -65,9 +65,12 @@ private struct SessionRow: View {
                 .font(.caption)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(session.projectName ?? "Unknown Project")
-                    .font(Constants.heading(size: 14, weight: .semibold))
-                    .foregroundColor(isSelected ? Constants.orangePrimary : Constants.textPrimary)
+                HStack(spacing: 4) {
+                    Text(session.projectName ?? "Unknown Project")
+                        .font(Constants.heading(size: 14, weight: .semibold))
+                        .foregroundColor(isSelected ? Constants.orangePrimary : Constants.textPrimary)
+                    AgentSourceBadge(source: session.agentSource)
+                }
                 HStack {
                     Text("\(session.eventCount) events")
                         .font(Constants.body(size: 11))

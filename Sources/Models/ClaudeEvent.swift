@@ -55,8 +55,16 @@ struct ClaudeEvent: Identifiable, Codable {
         HookEventType(rawValue: hookEventName)
     }
 
+    /// True when the event was produced by Copilot CLI rather than Claude Code.
+    var isCopilot: Bool { agentSource == .copilot }
+
     var projectName: String? {
         cwd.flatMap { URL(fileURLWithPath: $0).lastPathComponent }
+    }
+
+    /// Typed agent source derived from the raw `source` string.
+    var agentSource: AgentSource {
+        AgentSource(rawSource: source)
     }
 
     enum CodingKeys: String, CodingKey {

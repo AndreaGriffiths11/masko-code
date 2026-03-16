@@ -15,6 +15,7 @@ struct ClaudeSession: Identifiable, Codable {
     var terminalPid: Int?
     var shellPid: Int?
     var transcriptPath: String?
+    var agentSource: AgentSource = .unknown
 
     enum Status: String, Codable {
         case active, ended
@@ -299,6 +300,10 @@ final class SessionStore {
             if let pid = event.shellPid, sessions[index].shellPid == nil {
                 sessions[index].shellPid = pid
             }
+            // Adopt agent source from first tagged event
+            if sessions[index].agentSource == .unknown, event.agentSource != .unknown {
+                sessions[index].agentSource = event.agentSource
+            }
 
             // Reactivate ended sessions when active-work events arrive
             // (handles app restart while Claude Code is mid-session)
@@ -374,7 +379,8 @@ final class SessionStore {
                 phase: phase,
                 eventCount: 1,
                 startedAt: Date(),
-                lastEventAt: Date()
+                lastEventAt: Date(),
+                agentSource: event.agentSource
             )
             session.terminalPid = event.terminalPid
             session.shellPid = event.shellPid

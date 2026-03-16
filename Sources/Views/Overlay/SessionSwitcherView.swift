@@ -73,10 +73,13 @@ private struct SessionSwitcherRow: View {
 
             // Project name + phase
             VStack(alignment: .leading, spacing: 1) {
-                Text(projectLabel)
-                    .font(Constants.body(size: 11, weight: .medium))
-                    .foregroundStyle(Constants.textPrimary)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(projectLabel)
+                        .font(Constants.body(size: 11, weight: .medium))
+                        .foregroundStyle(Constants.textPrimary)
+                        .lineLimit(1)
+                    AgentSourceBadge(source: session.agentSource, compact: true)
+                }
 
                 HStack(spacing: 4) {
                     Text(phaseLabel)

@@ -120,7 +120,7 @@ enum HookInstaller {
         try writeSettings(settings)
     }
 
-    private static let scriptVersion = "# version: 14"
+    private static let scriptVersion = "# version: 15"
 
     /// Create or update hook-sender.sh
     static func ensureScriptExists() throws {
@@ -152,6 +152,9 @@ enum HookInstaller {
         curl -s --connect-timeout 0.3 "http://localhost:\(Constants.serverPort)/health" >/dev/null 2>&1 || exit 0
         INPUT=$(cat 2>/dev/null || echo '{}')
         EVENT_NAME=$(echo "$INPUT" | grep -o '"hook_event_name":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+        # Tag event with source agent
+        INPUT=$(echo "$INPUT" | sed 's/}$/,"source":"claude_code"}/')
 
         # Walk up process tree to find terminal app PID and shell PID
         TERM_PID=""

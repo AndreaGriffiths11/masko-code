@@ -97,6 +97,7 @@ struct EventRow: View {
                     Text(event.eventType?.displayName ?? event.hookEventName)
                         .font(Constants.heading(size: 14, weight: .semibold))
                         .foregroundColor(Constants.textPrimary)
+                    AgentSourceBadge(source: event.agentSource)
                     if let toolName = event.toolName {
                         Text(toolName)
                             .font(Constants.body(size: 12))

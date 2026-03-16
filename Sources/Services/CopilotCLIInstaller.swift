@@ -8,7 +8,8 @@ enum CopilotCLIInstaller {
     private static let pluginDir = NSHomeDirectory() + "/.masko-desktop/copilot-plugin"
     private static let installedPluginsDir = NSHomeDirectory() + "/.copilot/installed-plugins/local/masko-copilot"
     private static let directPluginsDir = NSHomeDirectory() + "/.copilot/installed-plugins/_direct/copilot-plugin"
-    private static let hookCommand = "~/.masko-desktop/hooks/hook-sender.sh"
+    private static let copilotHookScript = NSHomeDirectory() + "/.masko-desktop/hooks/copilot-hook.sh"
+    private static let copilotHookCommand = "~/.masko-desktop/hooks/copilot-hook.sh"
 
     // MARK: - Public API
 
@@ -53,8 +54,9 @@ enum CopilotCLIInstaller {
 
     /// Install the Copilot CLI plugin
     static func install() throws {
-        // Ensure the shared hook script exists
+        // Ensure the shared hook script and Copilot wrapper exist
         try HookInstaller.ensureScriptExists()
+        try ensureCopilotHookScript()
 
         let fm = FileManager.default
 
@@ -73,13 +75,13 @@ enum CopilotCLIInstaller {
         let pluginData = try JSONSerialization.data(withJSONObject: pluginManifest, options: [.prettyPrinted, .sortedKeys])
         try pluginData.write(to: URL(fileURLWithPath: pluginDir + "/plugin.json"))
 
-        // Write hooks.json using the same events as HookInstaller
-        let hookEntry: [String: Any] = [
-            "matcher": "",
-            "hooks": [["type": "command", "command": hookCommand]],
-        ]
+        // Write hooks.json — each event passes its type as an argument to the wrapper
         var hooksConfig: [String: Any] = [:]
         for event in HookInstaller.hookEvents {
+            let hookEntry: [String: Any] = [
+                "matcher": "",
+                "hooks": [["type": "command", "command": "\(copilotHookCommand) \(event)"]],
+            ]
             hooksConfig[event] = [hookEntry]
         }
         let hooksData = try JSONSerialization.data(withJSONObject: hooksConfig, options: [.prettyPrinted, .sortedKeys])
@@ -127,5 +129,50 @@ enum CopilotCLIInstaller {
 
         // Clean up our staging directory
         try? FileManager.default.removeItem(atPath: pluginDir)
+
+        // Remove the wrapper script
+        try? FileManager.default.removeItem(atPath: copilotHookScript)
+    }
+
+    // MARK: - Private
+
+    /// Write copilot-hook.sh — translates Copilot CLI event format to masko format
+    private static func ensureCopilotHookScript() throws {
+        let script = """
+        #!/bin/bash
+        # copilot-hook.sh — Translates Copilot CLI hook events for masko-desktop
+        # Copilot CLI uses camelCase fields and doesn't include hook_event_name,
+        # so we inject the event type (passed as $1) and remap field names.
+        EVENT_TYPE="$1"
+        INPUT=$(cat 2>/dev/null || echo '{}')
+
+        # Inject hook_event_name and translate camelCase → snake_case field names
+        INPUT=$(echo "$INPUT" | sed \\
+            -e "s/^{/{\\\"hook_event_name\\\":\\\"$EVENT_TYPE\\\",\\\"source\\\":\\\"copilot\\\",/" \\
+            -e 's/"sessionId"/"session_id"/g' \\
+            -e 's/"toolName"/"tool_name"/g' \\
+            -e 's/"toolArgs"/"tool_input"/g' \\
+            -e 's/"toolResult"/"tool_response"/g' \\
+            -e 's/"hookEventName"/"hook_event_name"/g' \\
+            -e 's/"transcriptPath"/"transcript_path"/g' \\
+            -e 's/"permissionMode"/"permission_mode"/g' \\
+            -e 's/"toolUseId"/"tool_use_id"/g' \\
+            -e 's/"notificationType"/"notification_type"/g' \\
+            -e 's/"stopHookActive"/"stop_hook_active"/g' \\
+            -e 's/"lastAssistantMessage"/"last_assistant_message"/g' \\
+            -e 's/"agentId"/"agent_id"/g' \\
+            -e 's/"agentType"/"agent_type"/g' \\
+            -e 's/"taskId"/"task_id"/g' \\
+            -e 's/"taskSubject"/"task_subject"/g')
+
+        echo "$INPUT" | ~/.masko-desktop/hooks/hook-sender.sh
+        """
+
+        let dir = (copilotHookScript as NSString).deletingLastPathComponent
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try script.write(toFile: copilotHookScript, atomically: true, encoding: .utf8)
+        // Make executable
+        let attrs: [FileAttributeKey: Any] = [.posixPermissions: 0o755]
+        try FileManager.default.setAttributes(attrs, ofItemAtPath: copilotHookScript)
     }
 }

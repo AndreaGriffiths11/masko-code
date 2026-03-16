@@ -31,33 +31,38 @@ final class EventProcessor {
 
     private func createNotification(from event: ClaudeEvent) -> AppNotification? {
         guard let eventType = event.eventType else { return nil }
+        let source = event.agentSource
+        let agentLabel = source == .unknown ? "" : "[\(source.displayName)] "
 
         switch eventType {
         case .notification:
             switch event.notificationType {
             case "permission_prompt":
                 return AppNotification(
-                    title: "Permission Required",
+                    title: "\(agentLabel)Permission Required",
                     body: event.message ?? "An agent needs your approval to proceed",
                     category: .permissionRequest,
                     priority: .urgent,
-                    sessionId: event.sessionId
+                    sessionId: event.sessionId,
+                    agentSource: source
                 )
             case "idle_prompt":
                 return AppNotification(
-                    title: "Claude is Waiting",
+                    title: "\(agentLabel)\(source.displayName) is Waiting",
                     body: event.message ?? "An agent has been idle in \(event.projectName ?? "a project")",
                     category: .idleAlert,
                     priority: .high,
-                    sessionId: event.sessionId
+                    sessionId: event.sessionId,
+                    agentSource: source
                 )
             case "elicitation_dialog":
                 return AppNotification(
-                    title: "Input Needed",
+                    title: "\(agentLabel)Input Needed",
                     body: event.message ?? "An agent needs your input",
                     category: .elicitationDialog,
                     priority: .high,
-                    sessionId: event.sessionId
+                    sessionId: event.sessionId,
+                    agentSource: source
                 )
             default:
                 return nil
@@ -74,69 +79,76 @@ final class EventProcessor {
                let questionText = qDict["question"] as? String {
                 body = questionText
             } else {
-                body = "Claude wants to use \(event.toolName ?? "a tool") in \(event.projectName ?? "a project")"
+                body = "\(source.displayName) wants to use \(event.toolName ?? "a tool") in \(event.projectName ?? "a project")"
             }
             return AppNotification(
-                title: event.toolName == "AskUserQuestion" ? "Question" : "Permission Requested",
+                title: event.toolName == "AskUserQuestion" ? "\(agentLabel)Question" : "\(agentLabel)Permission Requested",
                 body: body,
                 category: .permissionRequest,
                 priority: .high,
-                sessionId: event.sessionId
+                sessionId: event.sessionId,
+                agentSource: source
             )
 
         case .stop:
             return AppNotification(
-                title: "Task Completed",
+                title: "\(agentLabel)Task Completed",
                 body: truncate(event.lastAssistantMessage, maxLength: 100)
                     ?? "Agent finished in \(event.projectName ?? "a project")",
                 category: .sessionLifecycle,
                 priority: .normal,
-                sessionId: event.sessionId
+                sessionId: event.sessionId,
+                agentSource: source
             )
 
         case .postToolUseFailure:
             return AppNotification(
-                title: "Tool Failed",
+                title: "\(agentLabel)Tool Failed",
                 body: "\(event.toolName ?? "A tool") failed in \(event.projectName ?? "a project")",
                 category: .toolFailed,
                 priority: .normal,
-                sessionId: event.sessionId
+                sessionId: event.sessionId,
+                agentSource: source
             )
 
         case .taskCompleted:
             return AppNotification(
-                title: "Task Completed",
+                title: "\(agentLabel)Task Completed",
                 body: event.taskSubject ?? "A task was completed",
                 category: .taskCompleted,
                 priority: .normal,
-                sessionId: event.sessionId
+                sessionId: event.sessionId,
+                agentSource: source
             )
 
         case .sessionStart:
             return AppNotification(
-                title: "Session Started",
-                body: "New session in \(event.projectName ?? "unknown project")",
+                title: "\(agentLabel)Session Started",
+                body: "New \(source.displayName) session in \(event.projectName ?? "unknown project")",
                 category: .sessionLifecycle,
                 priority: .low,
-                sessionId: event.sessionId
+                sessionId: event.sessionId,
+                agentSource: source
             )
 
         case .sessionEnd:
             return AppNotification(
-                title: "Session Ended",
-                body: "Session ended in \(event.projectName ?? "unknown project")",
+                title: "\(agentLabel)Session Ended",
+                body: "\(source.displayName) session ended in \(event.projectName ?? "unknown project")",
                 category: .sessionLifecycle,
                 priority: .low,
-                sessionId: event.sessionId
+                sessionId: event.sessionId,
+                agentSource: source
             )
 
         case .preCompact:
             return AppNotification(
-                title: "Context Compacting",
-                body: "Agent is compacting context in \(event.projectName ?? "a project")",
+                title: "\(agentLabel)Context Compacting",
+                body: "\(source.displayName) is compacting context in \(event.projectName ?? "a project")",
                 category: .sessionLifecycle,
                 priority: .low,
-                sessionId: event.sessionId
+                sessionId: event.sessionId,
+                agentSource: source
             )
 
         default:
