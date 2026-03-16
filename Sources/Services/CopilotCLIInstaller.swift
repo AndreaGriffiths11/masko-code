@@ -141,7 +141,7 @@ enum CopilotCLIInstaller {
 
     // MARK: - Private
 
-    private static let copilotScriptVersion = "# version: 2"
+    private static let copilotScriptVersion = "# version: 3"
 
     /// Convert PascalCase (e.g. "PreToolUse") to camelCase (e.g. "preToolUse").
     private static func toCamelCase(_ pascal: String) -> String {
@@ -165,8 +165,15 @@ enum CopilotCLIInstaller {
         # copilot-hook.sh — Translates Copilot CLI hook events for masko-desktop
         # Copilot CLI uses camelCase fields and doesn't include hook_event_name,
         # so we inject the event type (passed as $1) and remap field names.
+        #
+        # NOTE: Copilot CLI does not support blocking hooks (preToolUse is advisory-only),
+        # so permission overlay is not available for Copilot sessions. All events are
+        # fire-and-forget for session tracking, activity feed, and source attribution.
         EVENT_TYPE="$1"
         INPUT=$(cat 2>/dev/null || echo '{}')
+
+        # Exit early if Masko server isn't running
+        curl -s --connect-timeout 0.3 "http://localhost:\(Constants.serverPort)/health" >/dev/null 2>&1 || exit 0
 
         # Inject hook_event_name, source tag, and translate camelCase → snake_case field names
         INPUT=$(echo "$INPUT" | sed \\
@@ -187,7 +194,11 @@ enum CopilotCLIInstaller {
             -e 's/"taskId"/"task_id"/g' \\
             -e 's/"taskSubject"/"task_subject"/g')
 
-        echo "$INPUT" | ~/.masko-desktop/hooks/hook-sender.sh
+        # Fire-and-forget for all events
+        curl -s -X POST -H "Content-Type: application/json" -d "$INPUT" \\
+            "http://localhost:\(Constants.serverPort)/hook" \\
+            --connect-timeout 1 --max-time 2 2>/dev/null || true
+        exit 0
         """
 
         let dir = (copilotHookScript as NSString).deletingLastPathComponent
