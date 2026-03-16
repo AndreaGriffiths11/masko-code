@@ -32,6 +32,22 @@ enum HookInstaller {
 
     // MARK: - Public API
 
+    /// Check if the Claude Code binary is available
+    static func isClaudeAvailable() -> Bool {
+        let paths = ["/usr/local/bin/claude", "/opt/homebrew/bin/claude"]
+        for path in paths {
+            if FileManager.default.isExecutableFile(atPath: path) { return true }
+        }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+        process.arguments = ["claude"]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
+        process.waitUntilExit()
+        return process.terminationStatus == 0
+    }
+
     /// Check if hooks are registered in ~/.claude/settings.json
     static func isRegistered() -> Bool {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: claudeSettingsPath)),

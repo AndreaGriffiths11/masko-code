@@ -77,7 +77,7 @@ struct OnboardingView: View {
         .onAppear {
             hookInstalled = HookInstaller.isRegistered()
             copilotHookInstalled = CopilotCLIInstaller.isRegistered()
-            claudeAvailable = CopilotCLIInstaller.isClaudeAvailable()
+            claudeAvailable = HookInstaller.isClaudeAvailable()
             copilotAvailable = CopilotCLIInstaller.isCopilotAvailable()
             accessibilityGranted = AXIsProcessTrusted()
         }

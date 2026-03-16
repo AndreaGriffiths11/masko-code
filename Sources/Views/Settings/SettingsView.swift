@@ -543,27 +543,27 @@ struct SettingsView: View {
     private func performUninstall() {
         let fm = FileManager.default
 
-        // 1. Remove hooks from ~/.claude/settings.json
+        // 1. Remove Claude Code hooks from ~/.claude/settings.json
         try? HookInstaller.uninstall()
 
-        // 1b. Remove Copilot CLI plugin
+        // 2. Remove Copilot CLI plugin
         CopilotCLIInstaller.uninstall()
 
-        // 1.5. Remove IDE extension
+        // 3. Remove IDE extension
         ExtensionInstaller.uninstall()
 
-        // 2. Delete ~/.masko-desktop/ (hook script)
+        // 4. Delete ~/.masko-desktop/ (hook script)
         let maskoDesktopDir = NSHomeDirectory() + "/.masko-desktop"
         try? fm.removeItem(atPath: maskoDesktopDir)
 
-        // 3. Delete ~/Library/Application Support/masko-desktop/
+        // 5. Delete ~/Library/Application Support/masko-desktop/
         try? fm.removeItem(at: LocalStorage.appSupportDir)
 
-        // 4. Delete ~/Library/Caches/masko-desktop/
+        // 6. Delete ~/Library/Caches/masko-desktop/
         let cacheDir = VideoCache.shared.cacheDir.deletingLastPathComponent()
         try? fm.removeItem(at: cacheDir)
 
-        // 5. Clear UserDefaults — all known bundle IDs (debug + release)
+        // 7. Clear UserDefaults — all known bundle IDs (debug + release)
         for domain in ["com.masko.desktop", "masko-code"] {
             UserDefaults.standard.removePersistentDomain(forName: domain)
         }
@@ -572,13 +572,13 @@ struct SettingsView: View {
         }
         UserDefaults.standard.synchronize()
 
-        // 5.5. Delete preference plist files explicitly (macOS caches them)
+        // 8. Delete preference plist files explicitly (macOS caches them)
         for plist in ["com.masko.desktop.plist", "masko-code.plist", "masko-desktop.plist"] {
             let path = NSHomeDirectory() + "/Library/Preferences/" + plist
             try? fm.removeItem(atPath: path)
         }
 
-        // 6. Quit the app
+        // 9. Quit the app
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             NSApplication.shared.terminate(nil)
         }

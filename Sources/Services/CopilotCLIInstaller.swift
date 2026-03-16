@@ -29,22 +29,6 @@ enum CopilotCLIInstaller {
         return process.terminationStatus == 0
     }
 
-    /// Check if the Claude Code binary is available
-    static func isClaudeAvailable() -> Bool {
-        let paths = ["/usr/local/bin/claude", "/opt/homebrew/bin/claude"]
-        for path in paths {
-            if FileManager.default.isExecutableFile(atPath: path) { return true }
-        }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/which")
-        process.arguments = ["claude"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try? process.run()
-        process.waitUntilExit()
-        return process.terminationStatus == 0
-    }
-
     /// Check if our plugin is installed
     static func isRegistered() -> Bool {
         FileManager.default.fileExists(atPath: installedPluginsDir + "/plugin.json")
