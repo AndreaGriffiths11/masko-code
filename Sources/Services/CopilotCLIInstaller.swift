@@ -75,15 +75,20 @@ enum CopilotCLIInstaller {
         let pluginData = try JSONSerialization.data(withJSONObject: pluginManifest, options: [.prettyPrinted, .sortedKeys])
         try pluginData.write(to: URL(fileURLWithPath: pluginDir + "/plugin.json"))
 
-        // Write hooks.json — each event passes its type as an argument to the wrapper
-        var hooksConfig: [String: Any] = [:]
+        // Write hooks.json — Copilot CLI uses { version: 1, hooks: { eventName: [...] } }
+        // with camelCase event names and "bash" instead of "command".
+        var hooksByEvent: [String: Any] = [:]
         for event in HookInstaller.hookEvents {
-            let hookEntry: [String: Any] = [
-                "matcher": "",
-                "hooks": [["type": "command", "command": "\(copilotHookCommand) \(event)"]],
-            ]
-            hooksConfig[event] = [hookEntry]
+            let camelEvent = Self.toCamelCase(event)
+            hooksByEvent[camelEvent] = [[
+                "type": "command",
+                "bash": "\(copilotHookCommand) \(event)",
+            ]]
         }
+        let hooksConfig: [String: Any] = [
+            "version": 1,
+            "hooks": hooksByEvent,
+        ]
         let hooksData = try JSONSerialization.data(withJSONObject: hooksConfig, options: [.prettyPrinted, .sortedKeys])
         try hooksData.write(to: URL(fileURLWithPath: pluginDir + "/hooks.json"))
 
@@ -136,17 +141,34 @@ enum CopilotCLIInstaller {
 
     // MARK: - Private
 
+    private static let copilotScriptVersion = "# version: 2"
+
+    /// Convert PascalCase (e.g. "PreToolUse") to camelCase (e.g. "preToolUse").
+    private static func toCamelCase(_ pascal: String) -> String {
+        guard let first = pascal.first else { return pascal }
+        return first.lowercased() + pascal.dropFirst()
+    }
+
     /// Write copilot-hook.sh — translates Copilot CLI event format to masko format
-    private static func ensureCopilotHookScript() throws {
+    /// Includes version check to auto-update on app startup.
+    static func ensureCopilotHookScript() throws {
+        // Skip if already up to date
+        if FileManager.default.fileExists(atPath: copilotHookScript),
+           let contents = try? String(contentsOfFile: copilotHookScript, encoding: .utf8),
+           contents.contains(copilotScriptVersion) {
+            return
+        }
+
         let script = """
         #!/bin/bash
+        \(copilotScriptVersion)
         # copilot-hook.sh — Translates Copilot CLI hook events for masko-desktop
         # Copilot CLI uses camelCase fields and doesn't include hook_event_name,
         # so we inject the event type (passed as $1) and remap field names.
         EVENT_TYPE="$1"
         INPUT=$(cat 2>/dev/null || echo '{}')
 
-        # Inject hook_event_name and translate camelCase → snake_case field names
+        # Inject hook_event_name, source tag, and translate camelCase → snake_case field names
         INPUT=$(echo "$INPUT" | sed \\
             -e "s/^{/{\\\"hook_event_name\\\":\\\"$EVENT_TYPE\\\",\\\"source\\\":\\\"copilot\\\",/" \\
             -e 's/"sessionId"/"session_id"/g' \\

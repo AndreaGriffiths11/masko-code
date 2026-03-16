@@ -324,6 +324,11 @@ final class AppStore {
             print("[masko-desktop] Failed to install hooks: \(error)")
         }
 
+        // Keep Copilot hook script in sync (version check skips if current)
+        if CopilotCLIInstaller.isRegistered() {
+            try? CopilotCLIInstaller.ensureCopilotHookScript()
+        }
+
         // Evict cached videos older than 30 days
         VideoCache.shared.evictStaleFiles()
 
