@@ -9,7 +9,10 @@ struct OnboardingView: View {
 
     @State private var step = 0
     @State private var hookInstalled = false
+    @State private var copilotHookInstalled = false
     @State private var hookError: String?
+    @State private var claudeAvailable = false
+    @State private var copilotAvailable = false
     @State private var ideExtensionInstalled = false
     @State private var ideExtensionError: String?
     @State private var accessibilityGranted = false
@@ -20,10 +23,14 @@ struct OnboardingView: View {
     private let totalSteps = 7
 
     /// Advance to the next step that actually needs user action, skipping already-completed ones.
+    private var allHooksInstalled: Bool {
+        (!claudeAvailable || hookInstalled) && (!copilotAvailable || copilotHookInstalled)
+    }
+
     private func nextStep(after current: Int) {
         var next = current + 1
         // Skip hooks step if already installed
-        if next == 1 && hookInstalled { next = 2 }
+        if next == 1 && allHooksInstalled { next = 2 }
         // Skip accessibility step if already granted
         if next == 3 && AXIsProcessTrusted() { next = 4 }
         // Skip IDE step if no IDE detected
@@ -69,6 +76,9 @@ struct OnboardingView: View {
         .animation(.easeInOut(duration: 0.3), value: step)
         .onAppear {
             hookInstalled = HookInstaller.isRegistered()
+            copilotHookInstalled = CopilotCLIInstaller.isRegistered()
+            claudeAvailable = CopilotCLIInstaller.isClaudeAvailable()
+            copilotAvailable = CopilotCLIInstaller.isCopilotAvailable()
             accessibilityGranted = AXIsProcessTrusted()
         }
     }
@@ -89,12 +99,12 @@ struct OnboardingView: View {
                 Text("Welcome to Masko")
                     .font(Constants.heading(size: 28, weight: .bold))
                     .foregroundStyle(Constants.textPrimary)
-                Text("for Claude Code")
+                Text("for AI Coding Agents")
                     .font(Constants.heading(size: 18, weight: .semibold))
                     .foregroundStyle(Constants.textMuted)
             }
 
-            Text("Masko lives on your screen, reacts to Claude Code activity, and lets you approve actions without switching windows.")
+            Text("Masko lives on your screen, reacts to coding agent activity, and lets you approve actions without switching windows.")
                 .font(Constants.body(size: 14))
                 .foregroundStyle(Constants.textMuted)
                 .multilineTextAlignment(.center)
@@ -112,20 +122,39 @@ struct OnboardingView: View {
 
     private var hooksStep: some View {
         VStack(spacing: 20) {
-            stepIcon(hookInstalled ? "checkmark.circle.fill" : "terminal.fill",
-                     color: hookInstalled ? .green : Constants.orangePrimary)
+            stepIcon(allHooksInstalled ? "checkmark.circle.fill" : "terminal.fill",
+                     color: allHooksInstalled ? .green : Constants.orangePrimary)
 
             VStack(spacing: 8) {
-                Text("Connect to Claude Code")
+                Text("Connect to Coding Agents")
                     .font(Constants.heading(size: 24, weight: .bold))
                     .foregroundStyle(Constants.textPrimary)
 
-                Text("Masko listens to Claude Code events via hooks. This adds a small config to ~/.claude/settings.json.")
+                Text("Masko listens to coding agent events via hooks. This configures each detected agent to send events to Masko.")
                     .font(Constants.body(size: 14))
                     .foregroundStyle(Constants.textMuted)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 20)
+            }
+
+            // Agent detection list
+            VStack(spacing: 8) {
+                if claudeAvailable {
+                    agentStatusRow("Claude Code", installed: hookInstalled)
+                }
+                if copilotAvailable {
+                    agentStatusRow("Copilot CLI", installed: copilotHookInstalled)
+                }
+                if !claudeAvailable && !copilotAvailable {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                        Text("No coding agents detected")
+                            .font(Constants.body(size: 14, weight: .medium))
+                            .foregroundStyle(Constants.textMuted)
+                    }
+                }
             }
 
             if let error = hookError {
@@ -134,15 +163,7 @@ struct OnboardingView: View {
                     .foregroundStyle(.red)
             }
 
-            if hookInstalled {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                    Text("Hooks enabled")
-                        .font(Constants.body(size: 14, weight: .medium))
-                        .foregroundStyle(.green)
-                }
-
+            if allHooksInstalled && (claudeAvailable || copilotAvailable) {
                 primaryButton("Continue") {
                     nextStep(after: 1)
                 }
@@ -156,6 +177,22 @@ struct OnboardingView: View {
         }
     }
 
+    private func agentStatusRow(_ name: String, installed: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: installed ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(installed ? .green : Constants.textMuted)
+                .font(.system(size: 14))
+            Text(name)
+                .font(Constants.body(size: 14, weight: .medium))
+                .foregroundStyle(Constants.textPrimary)
+            Spacer()
+            Text(installed ? "Connected" : "Detected")
+                .font(Constants.body(size: 12))
+                .foregroundStyle(installed ? .green : Constants.textMuted)
+        }
+        .padding(.horizontal, 40)
+    }
+
     // MARK: - Step 2: Notifications
 
     private var notificationsStep: some View {
@@ -167,7 +204,7 @@ struct OnboardingView: View {
                     .font(Constants.heading(size: 24, weight: .bold))
                     .foregroundStyle(Constants.textPrimary)
 
-                Text("Get notified when Claude Code needs your attention \u{2014} permission requests, questions, and completed tasks.")
+                Text("Get notified when a coding agent needs your attention \u{2014} permission requests, questions, and completed tasks.")
                     .font(Constants.body(size: 14))
                     .foregroundStyle(Constants.textMuted)
                     .multilineTextAlignment(.center)
@@ -300,7 +337,7 @@ struct OnboardingView: View {
                     .font(Constants.heading(size: 24, weight: .bold))
                     .foregroundStyle(Constants.textPrimary)
 
-                Text("Pick a companion that will live on your screen and react to Claude Code.")
+                Text("Pick a companion that will live on your screen and react to your coding agents.")
                     .font(Constants.body(size: 14))
                     .foregroundStyle(Constants.textMuted)
                     .multilineTextAlignment(.center)
@@ -417,8 +454,14 @@ struct OnboardingView: View {
     private func enableHooks() {
         hookError = nil
         do {
-            try HookInstaller.install()
-            hookInstalled = true
+            if claudeAvailable {
+                try HookInstaller.install()
+                hookInstalled = HookInstaller.isRegistered()
+            }
+            if copilotAvailable {
+                try CopilotCLIInstaller.install()
+                copilotHookInstalled = CopilotCLIInstaller.isRegistered()
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 nextStep(after: 1)
             }

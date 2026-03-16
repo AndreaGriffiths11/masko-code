@@ -9,8 +9,8 @@ enum HookInstaller {
     private static let hookScriptPath = NSHomeDirectory() + "/.masko-desktop/hooks/hook-sender.sh"
     private static let hookCommand = "~/.masko-desktop/hooks/hook-sender.sh"
 
-    /// All Claude Code event types we want to subscribe to
-    private static let hookEvents = [
+    /// All hook event types we want to subscribe to (shared with CopilotCLIInstaller)
+    static let hookEvents = [
         "PreToolUse",
         "PostToolUse",
         "PostToolUseFailure",

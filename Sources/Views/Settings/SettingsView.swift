@@ -4,7 +4,10 @@ struct SettingsView: View {
     @Environment(AppStore.self) var appStore
     @Environment(AppUpdater.self) var appUpdater
     @State private var isHookEnabled = false
+    @State private var isCopilotHookEnabled = false
+    @State private var copilotAvailable = false
     @State private var hookError: String?
+    @State private var copilotHookError: String?
     @State private var showUninstallConfirm = false
     @State private var portText: String = ""
     @State private var portError: String?
@@ -100,6 +103,37 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("Claude Code").font(Constants.heading(size: 13, weight: .semibold))
+            }
+
+            if copilotAvailable {
+                Section {
+                    HStack {
+                        Text("Plugin")
+                            .foregroundColor(Constants.textPrimary)
+                        Spacer()
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(isCopilotHookEnabled ? Color.green : Color.gray.opacity(0.4))
+                                .frame(width: 8, height: 8)
+                            Text(isCopilotHookEnabled ? "Installed" : "Not installed")
+                                .foregroundColor(Constants.textMuted)
+                        }
+                    }
+
+                    Button(action: toggleCopilotHooks) {
+                        Text(isCopilotHookEnabled ? "Disable" : "Enable")
+                            .foregroundColor(isCopilotHookEnabled ? Color(.sRGB, red: 220/255, green: 38/255, blue: 38/255) : Constants.orangePrimary)
+                    }
+                    .buttonStyle(.plain)
+
+                    if let error = copilotHookError {
+                        Text(error)
+                            .font(.system(size: 11))
+                            .foregroundColor(.red)
+                    }
+                } header: {
+                    Text("Copilot CLI").font(Constants.heading(size: 13, weight: .semibold))
+                }
             }
 
             Section {
@@ -338,7 +372,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                Text("Removes Claude Code hooks, local data, and quits the app.")
+                Text("Removes agent hooks, local data, and quits the app.")
                     .font(.system(size: 11))
                     .foregroundColor(Constants.textMuted)
             } header: {
@@ -352,6 +386,8 @@ struct SettingsView: View {
         .task {
             // Fast, synchronous — safe on main thread
             isHookEnabled = HookInstaller.isRegistered()
+            copilotAvailable = CopilotCLIInstaller.isCopilotAvailable()
+            isCopilotHookEnabled = CopilotCLIInstaller.isRegistered()
             videoCacheSize = VideoCache.shared.cacheSize
             portText = String(appStore.localServer.port)
 
@@ -376,7 +412,7 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
             Button("Uninstall", role: .destructive) { performUninstall() }
         } message: {
-            Text("This will remove Claude Code hooks, delete all local data, and quit the app. You can reinstall anytime.")
+            Text("This will remove all agent hooks, delete all local data, and quit the app. You can reinstall anytime.")
         }
     }
 
@@ -404,6 +440,20 @@ struct SettingsView: View {
             isHookEnabled = HookInstaller.isRegistered()
         } catch {
             hookError = error.localizedDescription
+        }
+    }
+
+    private func toggleCopilotHooks() {
+        copilotHookError = nil
+        do {
+            if isCopilotHookEnabled {
+                CopilotCLIInstaller.uninstall()
+            } else {
+                try CopilotCLIInstaller.install()
+            }
+            isCopilotHookEnabled = CopilotCLIInstaller.isRegistered()
+        } catch {
+            copilotHookError = error.localizedDescription
         }
     }
 
@@ -495,6 +545,9 @@ struct SettingsView: View {
 
         // 1. Remove hooks from ~/.claude/settings.json
         try? HookInstaller.uninstall()
+
+        // 1b. Remove Copilot CLI plugin
+        CopilotCLIInstaller.uninstall()
 
         // 1.5. Remove IDE extension
         ExtensionInstaller.uninstall()
